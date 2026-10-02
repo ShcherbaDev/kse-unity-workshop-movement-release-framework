@@ -1,0 +1,10 @@
+{
+    "name": "Yenotsoftware.KSE2DPlatformerFramework.Editor",
+    "references": [
+      "Yenotsoftware.KSE2DPlatformerFramework"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": []
+}

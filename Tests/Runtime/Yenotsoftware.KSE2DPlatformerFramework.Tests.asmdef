@@ -1,0 +1,11 @@
+{
+    "name": "Yenotsoftware.KSE2DPlatformerFramework.Tests",
+    "references": [
+        "Yenotsoftware.KSE2DPlatformerFramework"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": []
+}
