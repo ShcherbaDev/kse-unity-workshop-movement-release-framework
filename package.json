@@ -1,18 +1,17 @@
 {
 	"name": "com.yenotsoftware.kse2dplatformerframework",
-	"displayName":"KSE 2D Platformer Framework",
+	"displayName": "KSE 2D Platformer Framework",
 	"version": "0.1.0",
 	"unity": "6000.3",
-	"unityRelease": "24f1",
 	"description": "2D platformer framework for player and enemies",
 	"dependencies": {
-		"com.unity.inputsystem": "1.20.0"
+		"com.unity.inputsystem": "1.20.0",
+		"com.unity.modules.physics2d": "1.0.0"
 	},
 	"author": {
 		"name": "Andrii Shcherbakov",
 		"email": "ashcherbakov@kse.org.ua"
 	},
-	"changelogUrl": "https://example.com/changelog.html",
-	"documentationUrl": "https://example.com/",
-	"licensesUrl": "https://example.com/licensing.html"
+	"changelogUrl": "https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework/blob/master/CHANGELOG.md",
+	"documentationUrl": "https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework#readme"
 }

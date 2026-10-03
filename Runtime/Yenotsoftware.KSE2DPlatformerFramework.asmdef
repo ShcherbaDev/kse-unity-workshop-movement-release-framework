@@ -1,6 +1,9 @@
 {
     "name": "Yenotsoftware.KSE2DPlatformerFramework",
-    "references": [],
+    "rootNamespace": "Yenotsoftware.KSE2DPlatformerFramework",
+    "references": [
+        "Unity.InputSystem"
+    ],
     "includePlatforms": [],
     "excludePlatforms": []
 }

@@ -1,7 +1,8 @@
 {
     "name": "Yenotsoftware.KSE2DPlatformerFramework.Editor",
+    "rootNamespace": "Yenotsoftware.KSE2DPlatformerFramework.Editor",
     "references": [
-      "Yenotsoftware.KSE2DPlatformerFramework"
+        "Yenotsoftware.KSE2DPlatformerFramework"
     ],
     "includePlatforms": [
         "Editor"
