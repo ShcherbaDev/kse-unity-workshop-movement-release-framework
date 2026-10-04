@@ -12,16 +12,14 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 	[DisallowMultipleComponent]
 	public class EnvironmentSensor2D : MonoBehaviour
 	{
-		// Moving away from the surface faster
-		// than this means "just jumped / passing through", not grounded
-		private const float MaxSeparatingSpeed = 0.1f;
+		// Moving up faster than this
+		// means "just jumped / passing through a platform",
+		// not grounded
+		private const float MaxGroundedUpwardSpeed = 0.1f;
 		private const float LedgeRayStartHeight = 0.05f;
 
 		[SerializeField, Tooltip("Layers that count as ground, walls and ceilings. Do not include characters")]
 		private LayerMask _groundLayers = 1;
-
-		[SerializeField, Range(0f, 89f), Tooltip("Steeper surfaces count as walls instead of ground")]
-		private float _maxSlopeAngle = 45f;
 
 		[SerializeField, Min(0.001f)] private float _groundCheckDistance = 0.05f;
 		[SerializeField, Min(0.001f)] private float _wallCheckDistance = 0.05f;
@@ -39,11 +37,6 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 
 		public LayerMask GroundLayers => _groundLayers;
 		public bool IsGrounded { get; private set; }
-
-		/// <summary>
-		/// Normal of the ground below, or Vector2.up when not grounded
-		/// </summary>
-		public Vector2 GroundNormal { get; private set; } = Vector2.up;
 
 		/// <summary>
 		/// Time.time of the last tick the character was grounded
@@ -101,38 +94,22 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 			ContactFilter2D filter = new ContactFilter2D { useTriggers = false };
 			filter.SetLayerMask(_groundLayers);
 
-			float groundMinDot = Mathf.Cos(_maxSlopeAngle * Mathf.Deg2Rad);
-			float wallMinDot = Mathf.Sin(_maxSlopeAngle * Mathf.Deg2Rad);
-
 			// Subtract the hit rigidbody's velocity
 			// if moving platforms are added
-			IsGrounded = CastForSurface(filter, Vector2.down, _groundCheckDistance, groundMinDot, out Vector2 groundNormal)
-				&& Vector2.Dot(_body.linearVelocity, groundNormal) <= MaxSeparatingSpeed;
-			GroundNormal = IsGrounded ? groundNormal : Vector2.up;
+			IsGrounded = CastForSurface(filter, Vector2.down, _groundCheckDistance)
+				&& _body.linearVelocity.y <= MaxGroundedUpwardSpeed;
 			if (IsGrounded)
 				LastGroundedTime = Time.time;
 
-			IsTouchingWallLeft = CastForSurface(filter, Vector2.left, _wallCheckDistance, wallMinDot, out _);
-			IsTouchingWallRight = CastForSurface(filter, Vector2.right, _wallCheckDistance, wallMinDot, out _);
-			IsTouchingCeiling = CastForSurface(filter, Vector2.up, _ceilingCheckDistance, groundMinDot, out _);
+			IsTouchingWallLeft = CastForSurface(filter, Vector2.left, _wallCheckDistance);
+			IsTouchingWallRight = CastForSurface(filter, Vector2.right, _wallCheckDistance);
+			IsTouchingCeiling = CastForSurface(filter, Vector2.up, _ceilingCheckDistance);
 		}
 
 		// Casts all the body's colliders (ignoring its own)
-		// and accepts the first surface facing back at us
-		private bool CastForSurface(ContactFilter2D filter, Vector2 direction, float distance, float minDot, out Vector2 normal)
+		private bool CastForSurface(ContactFilter2D filter, Vector2 direction, float distance)
 		{
-			int count = _body.Cast(direction, filter, _hits, distance);
-			for (int i = 0; i < count; i++)
-			{
-				if (Vector2.Dot(_hits[i].normal, -direction) < minDot)
-					continue;
-
-				normal = _hits[i].normal;
-				return true;
-			}
-
-			normal = Vector2.zero;
-			return false;
+			return _body.Cast(direction, filter, _hits, distance) > 0;
 		}
 
 		private void OnDrawGizmosSelected()
