@@ -13,5 +13,12 @@
 		"email": "ashcherbakov@kse.org.ua"
 	},
 	"changelogUrl": "https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework/blob/master/CHANGELOG.md",
-	"documentationUrl": "https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework#readme"
+	"documentationUrl": "https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework#readme",
+	"samples": [
+		{
+			"displayName": "Demo",
+			"description": "Playable demo scene with a player (run, jump), a patrolling enemy and ready-to-use prefabs and input actions",
+			"path": "Samples~/Demo"
+		}
+	]
 }

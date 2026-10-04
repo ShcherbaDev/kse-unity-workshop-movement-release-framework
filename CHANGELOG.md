@@ -20,3 +20,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `EnemyController`, `EnemyState`: enemy state system; an enemy type is a prefab with the controller and a set of states (the spec's "enemy behaviours").
 - `TargetSensor2D`: finds a target (e.g. the player) by layer within a radius, so enemy prefabs never reference scene objects.
 - `PatrolState`: walks back and forth, turns at walls and ledges, stands still when both sides are blocked.
+- `FacingFlipper`: mirrors a visual child to match the motor's facing direction.
+- Demo sample: playable scene with player and patrolling enemies, prefabs, input actions (WASD composite in Digital mode), frictionless material.
+- README: setup, layers, input, adding player and enemy states, priority convention.
