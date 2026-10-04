@@ -3,6 +3,8 @@
     "rootNamespace": "Yenotsoftware.KSE2DPlatformerFramework.Tests",
     "references": [
         "Yenotsoftware.KSE2DPlatformerFramework",
+        "Unity.InputSystem",
+        "Unity.InputSystem.TestFramework",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
