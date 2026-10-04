@@ -29,3 +29,15 @@ One entry per prompt/session: what was asked, which constraints were given, what
 - **Tool:** Claude Code (Claude Opus 5.5)
 - **Design (by architect):** Mirror the player layer: `EnemyController : StateController<EnemyState>`, states as components. No `BaseEnemy` subclass hierarchy: an enemy type ("JumpEnemy") is a prefab = controller + states. Target found by layer (`TargetSensor2D`) instead of a scene reference, so prefabs stay scene-independent. Only Patrol is provided; chase/jump/charge states are left to teammates. Review change: renamed `EnemyBehaviour`/`PatrolBehaviour` to `EnemyState`/`PatrolState`: same state machine as the player, so one name for one concept (and `Behaviour` clashes with `UnityEngine.Behaviour`).
 - **Prompt:** `EnemyController`, `EnemyState` (lazy Motor/Sensor/TargetSensor), `TargetSensor2D.FindTarget()` via OverlapCircle + gizmo, `PatrolState` (always enterable fallback, turns at walls/ledges, stops instantly on turn so momentum cannot carry it off a ledge, stands still if both sides are blocked to avoid jitter on tiny platforms).
+- **Verification:** PlayMode tests: turns at a ledge and stays on the platform, turns at a wall, stands still on a platform as wide as itself. Mutation check: with blocking disabled all three fail with the expected messages. PlayMode 10/10.
+
+## 2026-10-04 - Demo sample and documentation (feat/demo)
+
+- **Tool:** Claude Code (Claude Opus 5.5) with UnityMCP
+- **Design (by architect):** One `Samples~/Demo` sample importable from the Package Manager: scene, Player and Patrol Enemy prefabs, own input actions asset (prefabs need concrete action references), frictionless material, square sprite. Layers 8/9/10 = Ground/Player/Enemy (layers are project settings, so the README tells users to add them). Sample edited in the dev project through a junction `Assets/KSE2DPlatformerDemo -> Samples~/Demo`; a dev-only editor script (`Tools/KSE Platformer/Rebuild Demo Sample`) rebuilds it. README examples use mechanics outside the spec's example lists (Glide, Chase) so teammates still build their own.
+- **Prompt:** `FacingFlipper` (flip a visual child by scale X from `FacingDirection`), generate the sample assets and scene, README usage: quick start, how the state machine works, building blocks, character setup, input Mode = Digital, adding player/enemy states with examples, priority convention, limitations, how to request API changes.
+- **Verification:** Scene renders with the URP 2D renderer without lights; Play mode runs with no console errors, enemies patrol and flip. README examples compiled in the dev project. PlayMode 10/10.
+
+## 2026-10-04 - Release v0.1.0
+
+- Tagged `v0.1.0` on the squash commit of the demo PR (#5). `CHANGELOG.md` under that tag still lists the changes as `[Unreleased]` because the release notes were not updated before tagging; tags are immutable, so this was fixed afterwards on master instead of re-tagging.
