@@ -17,3 +17,6 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - `PlayerController`, `PlayerState`: player state system; `PlayerState` gives mechanics access to `Motor`, `Sensor` and `InputReader`.
 - `PlayerInputReader`: move input (`InputActionReference`) and timestamped, bufferable button presses (`WasPressed(action, buffer)`, `ConsumePress`). States take their buttons as `InputActionReference` fields, no string names.
 - `GroundState`, `AirState`, `JumpState`: run with acceleration/deceleration, air control, fall and jump-release gravity, max fall speed, jump by height with jump buffer and coyote time.
+- `EnemyController`, `EnemyState`: enemy state system; an enemy type is a prefab with the controller and a set of states (the spec's "enemy behaviours").
+- `TargetSensor2D`: finds a target (e.g. the player) by layer within a radius, so enemy prefabs never reference scene objects.
+- `PatrolState`: walks back and forth, turns at walls and ledges, stands still when both sides are blocked.
