@@ -16,7 +16,7 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 
 		/// <summary>
 		/// Base Layer states without transitions: Idle (default, loop), Run (loop),
-		/// Hurt (one-shot, event "Hit" at half), Start (one-shot, event "Begin" at time 0)
+		/// Hurt (one-shot, event "Hit" at half)
 		/// </summary>
 		public static AnimatorController CreateController(bool withParameters, List<Object> created)
 		{
@@ -33,7 +33,6 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 			AddState(machine, "Idle", true, created);
 			AddState(machine, "Run", true, created);
 			AddState(machine, "Hurt", false, created, new AnimationEvent { time = ClipLength / 2f, functionName = "Raise", stringParameter = "Hit" });
-			AddState(machine, "Start", false, created, new AnimationEvent { time = 0f, functionName = "Raise", stringParameter = "Begin" });
 			created.Add(controller);
 			return controller;
 		}

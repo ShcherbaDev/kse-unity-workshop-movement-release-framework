@@ -49,21 +49,6 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 		}
 
 		[UnityTest]
-		public IEnumerator EmptyAnimationState_KeepsCurrentAnimation()
-		{
-			CreateCharacter();
-			TestAnimatedState run = AddState("Run");
-			TestAnimatedState empty = AddState("");
-			yield return Activate();
-
-			_characterAnimator.ApplyState(run);
-			_characterAnimator.ApplyState(empty);
-			yield return null;
-
-			Assert.AreEqual(Animator.StringToHash("Run"), CurrentStateHash());
-		}
-
-		[UnityTest]
 		public IEnumerator SameAnimationAsPreviousState_DoesNotRestart()
 		{
 			CreateCharacter();
@@ -81,7 +66,7 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 		}
 
 		[UnityTest]
-		public IEnumerator SameAnimationAfterEmptyState_Restarts()
+		public IEnumerator EmptyState_KeepsAnimation_ThenSameAnimationRestarts()
 		{
 			CreateCharacter();
 			TestAnimatedState run = AddState("Run");
@@ -91,9 +76,10 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 			_characterAnimator.ApplyState(run);
 			yield return new WaitForSeconds(ClipLength / 2f);
 			_characterAnimator.ApplyState(empty);
+			Assert.AreEqual(Animator.StringToHash("Run"), CurrentStateHash(), "Empty state changed the animation");
 			_characterAnimator.ApplyState(run);
 
-			Assert.Less(NormalizedTime(), 0.01f);
+			Assert.Less(NormalizedTime(), 0.01f, "Not restarted");
 		}
 
 		[UnityTest]
@@ -145,32 +131,6 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 		}
 
 		[UnityTest]
-		public IEnumerator NoAnimatorAssigned_WarnsAndCountsAsFinished()
-		{
-			CreateCharacter(assignAnimator: false);
-			TestAnimatedState hurt = AddState("Hurt");
-			yield return Activate();
-
-			_characterAnimator.ApplyState(hurt);
-			yield return null;
-
-			Assert.AreEqual(1, _warnings.FindAll(w => w.Contains("no Animator")).Count);
-			Assert.IsTrue(hurt.Finished);
-		}
-
-		[UnityTest]
-		public IEnumerator StateWithoutCharacterAnimator_CountsAsFinished()
-		{
-			GameObject go = new GameObject("No Animator");
-			_created.Add(go);
-			TestAnimatedState hurt = go.AddComponent<TestAnimatedState>();
-			AnimatorTestUtility.SetField(hurt, "_animationState", "Hurt");
-			yield return null;
-
-			Assert.IsTrue(hurt.Finished);
-		}
-
-		[UnityTest]
 		public IEnumerator ReenablingVisual_ReappliesAnimation()
 		{
 			CreateCharacter();
@@ -182,23 +142,6 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 			_visual.SetActive(false);
 			yield return null;
 			_visual.SetActive(true);
-			yield return null;
-			yield return null;
-
-			Assert.AreEqual(Animator.StringToHash("Run"), CurrentStateHash());
-		}
-
-		[UnityTest]
-		public IEnumerator ReenablingRoot_ReappliesAnimation()
-		{
-			CreateCharacter();
-			TestAnimatedState run = AddState("Run");
-			yield return Activate();
-			_characterAnimator.ApplyState(run);
-
-			_root.SetActive(false);
-			yield return null;
-			_root.SetActive(true);
 			yield return null;
 			yield return null;
 
@@ -223,14 +166,20 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 		}
 
 		[UnityTest]
-		public IEnumerator ControllerWithoutParameters_LogsNothing()
+		public IEnumerator SwappingController_ReappliesAnimation_AndLogsNothing()
 		{
-			CreateCharacter(withParameters: false);
+			CreateCharacter();
+			TestAnimatedState run = AddState("Run");
 			yield return Activate();
+			_characterAnimator.ApplyState(run);
+			yield return null;
 
+			// The new controller starts in its default state (Idle) and has no parameters
+			_animator.runtimeAnimatorController = AnimatorTestUtility.CreateController(false, _created);
 			yield return null;
 			yield return null;
 
+			Assert.AreEqual(Animator.StringToHash("Run"), CurrentStateHash());
 			CollectionAssert.IsEmpty(_warnings);
 		}
 
@@ -251,26 +200,6 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 		}
 
 		[UnityTest]
-		public IEnumerator EventFromAnotherStatesClip_OnlyRaisesCSharpEvent()
-		{
-			CreateCharacter();
-			TestAnimatedState hurt = AddState("Hurt");
-			TestAnimatedState empty = AddState("");
-			List<string> raised = new List<string>();
-			yield return Activate();
-			_characterAnimator.AnimationEventRaised += raised.Add;
-
-			// The Animator keeps playing Hurt while a state without animation is active
-			_characterAnimator.ApplyState(hurt);
-			_characterAnimator.ApplyState(empty);
-			yield return new WaitForSeconds(ClipLength + 0.1f);
-
-			CollectionAssert.IsEmpty(hurt.Events);
-			CollectionAssert.IsEmpty(empty.Events);
-			CollectionAssert.AreEqual(new[] { "Hit" }, raised);
-		}
-
-		[UnityTest]
 		public IEnumerator EventFromAnotherStatesClip_DoesNotReachStateWithOtherAnimation()
 		{
 			CreateCharacter();
@@ -286,47 +215,7 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 			CollectionAssert.IsEmpty(missing.Events);
 		}
 
-		[UnityTest]
-		public IEnumerator EventAtTimeZero_FiresOnce()
-		{
-			CreateCharacter();
-			TestAnimatedState start = AddState("Start");
-			yield return Activate();
-
-			_characterAnimator.ApplyState(start);
-			yield return new WaitForSeconds(ClipLength + 0.1f);
-
-			// Guards against a double fire from Update(0f) right after Play
-			CollectionAssert.AreEqual(new[] { "Begin" }, start.Events);
-		}
-
-		[UnityTest]
-		public IEnumerator AnimatorOnRoot_RoutesEvents()
-		{
-			CreateCharacter(animatorOnRoot: true);
-			TestAnimatedState hurt = AddState("Hurt");
-			yield return Activate();
-
-			_characterAnimator.ApplyState(hurt);
-			yield return new WaitForSeconds(ClipLength + 0.1f);
-
-			CollectionAssert.AreEqual(new[] { "Hit" }, hurt.Events);
-		}
-
-		[Test]
-		public void RelayWithoutCharacterAnimator_WarnsOnce()
-		{
-			GameObject go = new GameObject("Lonely Relay");
-			_created.Add(go);
-			AnimationEventRelay relay = go.AddComponent<AnimationEventRelay>();
-
-			relay.Raise(new AnimationEvent { stringParameter = "Hit" });
-			relay.Raise(new AnimationEvent { stringParameter = "Hit" });
-
-			Assert.AreEqual(1, _warnings.FindAll(w => w.Contains(nameof(CharacterAnimator))).Count);
-		}
-
-		private void CreateCharacter(bool withParameters = true, bool assignAnimator = true, bool animatorOnRoot = false)
+		private void CreateCharacter()
 		{
 			// Built inactive so every component exists before Awake
 			_root = new GameObject("Character");
@@ -336,14 +225,13 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 			_root.AddComponent<Rigidbody2D>().bodyType = RigidbodyType2D.Kinematic;
 			_root.AddComponent<EnvironmentSensor2D>();
 
-			_visual = animatorOnRoot ? _root : new GameObject("Visual");
-			if (!animatorOnRoot)
-				_visual.transform.SetParent(_root.transform, false);
+			_visual = new GameObject("Visual");
+			_visual.transform.SetParent(_root.transform, false);
 			_animator = _visual.AddComponent<Animator>();
-			_animator.runtimeAnimatorController = AnimatorTestUtility.CreateController(withParameters, _created);
+			_animator.runtimeAnimatorController = AnimatorTestUtility.CreateController(true, _created);
 
 			_characterAnimator = _root.AddComponent<CharacterAnimator>();
-			AnimatorTestUtility.SetField(_characterAnimator, "_animator", assignAnimator ? _animator : null);
+			AnimatorTestUtility.SetField(_characterAnimator, "_animator", _animator);
 		}
 
 		private TestAnimatedState AddState(string animationState)

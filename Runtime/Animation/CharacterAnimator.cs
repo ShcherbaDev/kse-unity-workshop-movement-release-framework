@@ -11,8 +11,10 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 	/// Every frame it also writes Speed, VerticalSpeed and Grounded for blend trees (Idle/Run, Rise/Fall).
 	/// Animation Events go to the active state (see <see cref="ComponentState.OnAnimationEvent"/>) and to <see cref="AnimationEventRaised"/>.
 	///
-	/// The Animator graph needs no transitions:
-	/// the state machine decides, the Animator only displays
+	/// The Animator graph must have no transitions:
+	/// the state machine decides, the Animator only displays.
+	/// Whenever the Animator leaves the active state's animation (re-enable, pooling, Rebind, a new controller)
+	/// it is put back
 	/// </summary>
 	[RequireComponent(typeof(PlatformerMotor2D))]
 	[DisallowMultipleComponent]
@@ -33,6 +35,8 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 		private readonly HashSet<int> _warnedStates = new HashSet<int>();
 		private PlatformerMotor2D _motor;
 		private EnvironmentSensor2D _sensor;
+		// Controller the parameters and the played animation belong to
+		private RuntimeAnimatorController _boundController;
 		private bool _parametersFound;
 		// 0 = the controller has no such parameter
 		private int _speedHash;
@@ -41,7 +45,6 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 		private ComponentState _state;
 		// Last state hash actually played, 0 when the animation must be applied again
 		private int _playedHash;
-		private bool _animatorWasActive;
 
 		/// <summary>
 		/// Raised for every Animation Event with its String parameter,
@@ -51,9 +54,13 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 
 		private void Reset()
 		{
-			_animator = GetComponentInChildren<Animator>();
-			// Present at edit time, so the Animation window lists Raise for clip events
-			AddRelay();
+			_animator = GetComponentInChildren<Animator>(true);
+#if UNITY_EDITOR
+			// Present at edit time, so the Animation window lists Raise for clip events.
+			// Through Undo, so undoing the add of this component removes the relay too
+			if (_animator && !_animator.GetComponent<AnimationEventRelay>())
+				UnityEditor.Undo.AddComponent<AnimationEventRelay>(_animator.gameObject);
+#endif
 		}
 
 		private void Awake()
@@ -70,30 +77,32 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 				Debug.LogWarning($"Animator on '{_animator.name}' has no Animator Controller", _animator);
 			if (_animator.cullingMode == AnimatorCullingMode.CullCompletely)
 				Debug.LogWarning($"Animator on '{_animator.name}' uses Cull Completely: off screen it stops, and a state waiting for its animation stays in it. Use Always Animate", _animator);
+			_boundController = _animator.runtimeAnimatorController;
 			AddRelay();
-		}
-
-		private void OnDisable()
-		{
-			// While the root is disabled Update does not run and would miss the Animator coming back
-			_animatorWasActive = false;
 		}
 
 		private void Update()
 		{
-			if (!_animator)
+			if (!_animator || !_animator.isActiveAndEnabled)
 				return;
 
-			bool active = _animator.isActiveAndEnabled;
-			// Unity resets an Animator to its entry state when its GameObject is disabled
-			if (active && !_animatorWasActive)
+			// A new controller may have other parameters and other states
+			if (_animator.runtimeAnimatorController != _boundController)
+			{
+				_boundController = _animator.runtimeAnimatorController;
+				_parametersFound = false;
 				_playedHash = 0;
-			_animatorWasActive = active;
-			if (!active)
-				return;
+			}
 
-			if (_playedHash == 0 && _state)
-				ApplyState(_state);
+			if (_playedHash == 0)
+			{
+				if (_state)
+					ApplyState(_state);
+			}
+			// Unity puts the Animator back to its default state on re-enable or Rebind;
+			// without transitions nothing else moves it away
+			else if (_animator.GetCurrentAnimatorStateInfo(0).shortNameHash != _playedHash)
+				Play(_playedHash);
 			WriteParameters();
 		}
 
@@ -114,8 +123,9 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 			if (previous && previous.AnimationState == stateName && hash == _playedHash)
 				return;
 
-			// Checked before HasState, which can be false on an inactive Animator
-			if (!_animator || !_animator.isActiveAndEnabled)
+			// Checked before HasState, which is false on an inactive Animator or without a controller
+			// (Awake already warns about a missing controller)
+			if (!_animator || !_animator.isActiveAndEnabled || !_animator.runtimeAnimatorController)
 			{
 				_playedHash = 0;
 				return;
@@ -128,12 +138,7 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 				return;
 			}
 
-			_animator.Play(hash, 0, 0f);
-			// Applies the switch now, so the Animator's state info is never stale,
-			// whatever its Update Mode or the caller's update phase
-			_animator.Update(0f);
-			_playedHash = hash;
-			_animatorWasActive = true;
+			Play(hash);
 		}
 
 		internal bool IsAnimationFinished(ComponentState state)
@@ -198,6 +203,15 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 			}
 
 			return 0;
+		}
+
+		private void Play(int hash)
+		{
+			_animator.Play(hash, 0, 0f);
+			// Applies the switch now, so the Animator's state info is never stale,
+			// whatever its Update Mode or the caller's update phase
+			_animator.Update(0f);
+			_playedHash = hash;
 		}
 
 		private void AddRelay()
