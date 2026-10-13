@@ -205,6 +205,35 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 			Assert.AreEqual(Animator.StringToHash("Run"), CurrentStateHash());
 		}
 
+		[UnityTest]
+		public IEnumerator WritesMovementParameters()
+		{
+			CreateCharacter();
+			yield return Activate();
+			_root.GetComponent<Rigidbody2D>().linearVelocity = new Vector2(-2f, 3f);
+			// The sensor never refreshes without a controller, so it reports not grounded
+			_animator.SetBool("Grounded", true);
+
+			yield return null;
+			yield return null;
+
+			Assert.That(_animator.GetFloat("Speed"), Is.EqualTo(2f).Within(1e-3f));
+			Assert.That(_animator.GetFloat("VerticalSpeed"), Is.EqualTo(3f).Within(1e-3f));
+			Assert.IsFalse(_animator.GetBool("Grounded"));
+		}
+
+		[UnityTest]
+		public IEnumerator ControllerWithoutParameters_LogsNothing()
+		{
+			CreateCharacter(withParameters: false);
+			yield return Activate();
+
+			yield return null;
+			yield return null;
+
+			CollectionAssert.IsEmpty(_warnings);
+		}
+
 		private void CreateCharacter(bool withParameters = true, bool assignAnimator = true, bool animatorOnRoot = false)
 		{
 			// Built inactive so every component exists before Awake

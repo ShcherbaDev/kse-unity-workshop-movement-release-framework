@@ -7,6 +7,7 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 	/// Shows the active state on an Animator.
 	/// On every state switch it plays the state's <see cref="ComponentState.AnimationState"/> instantly
 	/// (sprite sheets cannot be blended).
+	/// Every frame it also writes Speed, VerticalSpeed and Grounded for blend trees (Idle/Run, Rise/Fall).
 	///
 	/// The Animator graph needs no transitions:
 	/// the state machine decides, the Animator only displays
@@ -18,7 +19,23 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 		[SerializeField, Tooltip("Animator on the visual child")]
 		private Animator _animator;
 
+		[SerializeField, Tooltip("Float parameter set to the absolute horizontal speed. Skipped if the controller has no such parameter")]
+		private string _speedParameter = "Speed";
+
+		[SerializeField, Tooltip("Float parameter set to the vertical speed, positive when rising. Skipped if missing")]
+		private string _verticalSpeedParameter = "VerticalSpeed";
+
+		[SerializeField, Tooltip("Bool parameter set to EnvironmentSensor2D.IsGrounded. Skipped if missing")]
+		private string _groundedParameter = "Grounded";
+
 		private readonly HashSet<int> _warnedStates = new HashSet<int>();
+		private PlatformerMotor2D _motor;
+		private EnvironmentSensor2D _sensor;
+		private bool _parametersFound;
+		// 0 = the controller has no such parameter
+		private int _speedHash;
+		private int _verticalSpeedHash;
+		private int _groundedHash;
 		private ComponentState _state;
 		// Last state hash actually played, 0 when the animation must be applied again
 		private int _playedHash;
@@ -33,6 +50,8 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 
 		private void Awake()
 		{
+			_motor = GetComponent<PlatformerMotor2D>();
+			_sensor = GetComponent<EnvironmentSensor2D>();
 			if (!_animator)
 			{
 				Debug.LogWarning($"{nameof(CharacterAnimator)} on '{name}' has no Animator assigned", this);
@@ -67,6 +86,7 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 
 			if (_playedHash == 0 && _state)
 				ApplyState(_state);
+			WriteParameters();
 		}
 
 		/// <summary>
@@ -127,6 +147,41 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 		/// </summary>
 		internal void HandleAnimationEvent(AnimationEvent animationEvent)
 		{ }
+
+		private void WriteParameters()
+		{
+			// Looked up once the Animator is active: before that its parameters may be unavailable
+			if (!_parametersFound)
+			{
+				_speedHash = FindParameter(_speedParameter, AnimatorControllerParameterType.Float);
+				_verticalSpeedHash = FindParameter(_verticalSpeedParameter, AnimatorControllerParameterType.Float);
+				_groundedHash = _sensor ? FindParameter(_groundedParameter, AnimatorControllerParameterType.Bool) : 0;
+				_parametersFound = true;
+			}
+
+			Vector2 velocity = _motor.Velocity;
+			if (_speedHash != 0)
+				_animator.SetFloat(_speedHash, Mathf.Abs(velocity.x));
+			if (_verticalSpeedHash != 0)
+				_animator.SetFloat(_verticalSpeedHash, velocity.y);
+			if (_groundedHash != 0)
+				_animator.SetBool(_groundedHash, _sensor.IsGrounded);
+		}
+
+		// Missing parameters are skipped silently, so a game uses only the ones it needs
+		private int FindParameter(string parameterName, AnimatorControllerParameterType type)
+		{
+			if (string.IsNullOrEmpty(parameterName))
+				return 0;
+
+			foreach (AnimatorControllerParameter parameter in _animator.parameters)
+			{
+				if (parameter.name == parameterName && parameter.type == type)
+					return parameter.nameHash;
+			}
+
+			return 0;
+		}
 
 		private void AddRelay()
 		{
