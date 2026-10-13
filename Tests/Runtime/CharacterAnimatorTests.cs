@@ -234,6 +234,98 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 			CollectionAssert.IsEmpty(_warnings);
 		}
 
+		[UnityTest]
+		public IEnumerator EventFromActiveStatesClip_ReachesStateOnce()
+		{
+			CreateCharacter();
+			TestAnimatedState hurt = AddState("Hurt");
+			List<string> raised = new List<string>();
+			yield return Activate();
+			_characterAnimator.AnimationEventRaised += raised.Add;
+
+			_characterAnimator.ApplyState(hurt);
+			yield return new WaitForSeconds(ClipLength + 0.1f);
+
+			CollectionAssert.AreEqual(new[] { "Hit" }, hurt.Events);
+			CollectionAssert.AreEqual(new[] { "Hit" }, raised);
+		}
+
+		[UnityTest]
+		public IEnumerator EventFromAnotherStatesClip_OnlyRaisesCSharpEvent()
+		{
+			CreateCharacter();
+			TestAnimatedState hurt = AddState("Hurt");
+			TestAnimatedState empty = AddState("");
+			List<string> raised = new List<string>();
+			yield return Activate();
+			_characterAnimator.AnimationEventRaised += raised.Add;
+
+			// The Animator keeps playing Hurt while a state without animation is active
+			_characterAnimator.ApplyState(hurt);
+			_characterAnimator.ApplyState(empty);
+			yield return new WaitForSeconds(ClipLength + 0.1f);
+
+			CollectionAssert.IsEmpty(hurt.Events);
+			CollectionAssert.IsEmpty(empty.Events);
+			CollectionAssert.AreEqual(new[] { "Hit" }, raised);
+		}
+
+		[UnityTest]
+		public IEnumerator EventFromAnotherStatesClip_DoesNotReachStateWithOtherAnimation()
+		{
+			CreateCharacter();
+			TestAnimatedState hurt = AddState("Hurt");
+			TestAnimatedState missing = AddState("Missing");
+			yield return Activate();
+
+			// Missing is not in the Animator, so Hurt keeps playing while Missing is active
+			_characterAnimator.ApplyState(hurt);
+			_characterAnimator.ApplyState(missing);
+			yield return new WaitForSeconds(ClipLength + 0.1f);
+
+			CollectionAssert.IsEmpty(missing.Events);
+		}
+
+		[UnityTest]
+		public IEnumerator EventAtTimeZero_FiresOnce()
+		{
+			CreateCharacter();
+			TestAnimatedState start = AddState("Start");
+			yield return Activate();
+
+			_characterAnimator.ApplyState(start);
+			yield return new WaitForSeconds(ClipLength + 0.1f);
+
+			// Guards against a double fire from Update(0f) right after Play
+			CollectionAssert.AreEqual(new[] { "Begin" }, start.Events);
+		}
+
+		[UnityTest]
+		public IEnumerator AnimatorOnRoot_RoutesEvents()
+		{
+			CreateCharacter(animatorOnRoot: true);
+			TestAnimatedState hurt = AddState("Hurt");
+			yield return Activate();
+
+			_characterAnimator.ApplyState(hurt);
+			yield return new WaitForSeconds(ClipLength + 0.1f);
+
+			CollectionAssert.AreEqual(new[] { "Hit" }, hurt.Events);
+		}
+
+		[Test]
+		public void RelayWithoutCharacterAnimator_WarnsOnce()
+		{
+			GameObject go = new GameObject("Lonely Relay");
+			_created.Add(go);
+			AnimationEventRelay relay = go.AddComponent<AnimationEventRelay>();
+
+			relay.Raise(new AnimationEvent { stringParameter = "Hit" });
+			relay.Raise(new AnimationEvent { stringParameter = "Hit" });
+
+			Assert.AreEqual(1, _warnings.FindAll(w => w.Contains(nameof(CharacterAnimator))).Count);
+		}
+
 		private void CreateCharacter(bool withParameters = true, bool assignAnimator = true, bool animatorOnRoot = false)
 		{
 			// Built inactive so every component exists before Awake
@@ -294,6 +386,11 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 		public override bool CanEnter()
 		{
 			return false;
+		}
+
+		public override void OnAnimationEvent(string eventName)
+		{
+			Events.Add(eventName);
 		}
 	}
 }

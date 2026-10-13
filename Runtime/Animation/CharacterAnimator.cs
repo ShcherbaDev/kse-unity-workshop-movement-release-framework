@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,6 +9,7 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 	/// On every state switch it plays the state's <see cref="ComponentState.AnimationState"/> instantly
 	/// (sprite sheets cannot be blended).
 	/// Every frame it also writes Speed, VerticalSpeed and Grounded for blend trees (Idle/Run, Rise/Fall).
+	/// Animation Events go to the active state (see <see cref="ComponentState.OnAnimationEvent"/>) and to <see cref="AnimationEventRaised"/>.
 	///
 	/// The Animator graph needs no transitions:
 	/// the state machine decides, the Animator only displays
@@ -40,6 +42,12 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 		// Last state hash actually played, 0 when the animation must be applied again
 		private int _playedHash;
 		private bool _animatorWasActive;
+
+		/// <summary>
+		/// Raised for every Animation Event with its String parameter,
+		/// whichever clip fired it. Use it for VFX or sound
+		/// </summary>
+		public event Action<string> AnimationEventRaised;
 
 		private void Reset()
 		{
@@ -146,7 +154,16 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 		/// Called by <see cref="AnimationEventRelay"/>
 		/// </summary>
 		internal void HandleAnimationEvent(AnimationEvent animationEvent)
-		{ }
+		{
+			string eventName = animationEvent.stringParameter;
+			// Only events from the active state's own animation reach it,
+			// so a clip that is still playing for another state cannot repeat its action
+			if (_state && !string.IsNullOrEmpty(_state.AnimationState)
+				&& animationEvent.animatorStateInfo.shortNameHash == Animator.StringToHash(_state.AnimationState))
+				_state.OnAnimationEvent(eventName);
+
+			AnimationEventRaised?.Invoke(eventName);
+		}
 
 		private void WriteParameters()
 		{

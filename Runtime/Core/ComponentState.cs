@@ -45,6 +45,16 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 			}
 		}
 
+		/// <summary>
+		/// Called for Animation Events from this state's own animation only,
+		/// with the event's String parameter.
+		///
+		/// Runs inside the Animator update:
+		/// to switch states, set a flag that <see cref="CanEnter"/> checks
+		/// </summary>
+		public virtual void OnAnimationEvent(string eventName)
+		{ }
+
 		public abstract bool CanEnter();
 		public virtual bool CanExit() => true;
 

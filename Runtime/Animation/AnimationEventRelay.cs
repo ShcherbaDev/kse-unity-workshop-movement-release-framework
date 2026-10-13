@@ -13,6 +13,7 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 	public class AnimationEventRelay : MonoBehaviour
 	{
 		private CharacterAnimator _target;
+		private bool _warned;
 
 		public void Raise(AnimationEvent animationEvent)
 		{
@@ -21,6 +22,11 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 
 			if (_target)
 				_target.HandleAnimationEvent(animationEvent);
+			else if (!_warned)
+			{
+				_warned = true;
+				Debug.LogWarning($"{nameof(AnimationEventRelay)} on '{name}' found no {nameof(CharacterAnimator)} in its parents, event '{animationEvent.stringParameter}' ignored", this);
+			}
 		}
 	}
 }
