@@ -9,12 +9,16 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 	/// on this GameObject, once per physics tick.
 	///
 	/// Refreshes the <see cref="EnvironmentSensor2D"/> (if present) first,
-	/// so states always read this tick's checks
+	/// so states always read this tick's checks.
+	///
+	/// Passes every new state to the <see cref="CharacterAnimator"/> (if present),
+	/// which plays its animation
 	/// </summary>
 	public abstract class StateController<TState> : MonoBehaviour where TState : ComponentState
 	{
 		private StateMachine<TState> _machine;
 		private EnvironmentSensor2D _sensor;
+		private CharacterAnimator _characterAnimator;
 
 		/// <summary>
 		/// The active state, or null if none could enter yet
@@ -35,7 +39,13 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 
 			_sensor = GetComponent<EnvironmentSensor2D>();
 			_machine = new StateMachine<TState>(states);
-			_machine.StateChanged += (previous, next) => StateChanged?.Invoke(previous, next);
+			_characterAnimator = GetComponent<CharacterAnimator>();
+			_machine.StateChanged += (previous, next) =>
+			{
+				if (_characterAnimator)
+					_characterAnimator.ApplyState(next);
+				StateChanged?.Invoke(previous, next);
+			};
 		}
 
 		protected virtual void FixedUpdate()
