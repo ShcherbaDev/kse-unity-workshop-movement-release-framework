@@ -13,13 +13,13 @@
 Window > Package Manager > + > Install package from git URL:
 
 ```
-https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework.git#v0.1.0
+https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework.git#v0.2.0
 ```
 
 Or add it to `Packages/manifest.json`:
 
 ```json
-"com.yenotsoftware.kse2dplatformerframework": "https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework.git#v0.1.0"
+"com.yenotsoftware.kse2dplatformerframework": "https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework.git#v0.2.0"
 ```
 
 ### Updating
@@ -30,7 +30,7 @@ Change the tag after `#` to the new version. See [CHANGELOG.md](CHANGELOG.md) fo
 
 1. Window > Package Manager > KSE 2D Platformer Framework > Samples > **Demo** > Import.
 2. Add layers in Project Settings > Tags and Layers: **8 = Ground**, **9 = Player**, **10 = Enemy** (the demo prefabs use these numbers).
-3. Open `Assets/Samples/KSE 2D Platformer Framework/<version>/Demo/Demo.unity` and press Play. Move with WASD / left stick, jump with Space / gamepad South.
+3. Open `Assets/Samples/KSE 2D Platformer Framework/<version>/Demo/Demo.unity` and press Play. Move with WASD / left stick, jump with Space / gamepad South. Press H to test the Hurt reaction.
 
 The demo was made with the Universal 2D template (URP); in a Built-in render pipeline project the sprites need a different material.
 
@@ -59,6 +59,8 @@ The spec's "player states" and "enemy behaviours" are the same thing here: `Play
 | `PlayerInputReader` | `Move` (Vector2) and buffered button presses: `WasPressed(action, bufferTime)`, `ConsumePress(action)` |
 | `TargetSensor2D` | `FindTarget()`: a target (e.g. the player) on the given layers within a radius |
 | `FacingFlipper` | Mirrors a visual child to match `FacingDirection` |
+| `CharacterAnimator` | Plays the active state's animation on the Animator, writes `Speed`/`VerticalSpeed`/`Grounded`, routes Animation Events. See [Animation](#animation) |
+| `AnimationEventRelay` | Sits next to the Animator and passes its Animation Events to `CharacterAnimator`. Added automatically |
 
 Included states: `GroundState` (run), `AirState` (air control, fall gravity, variable jump height), `JumpState` (jump buffer, coyote time), `PatrolState` (enemy walks and turns at walls and ledges).
 
@@ -70,6 +72,7 @@ Included states: `GroundState` (run), `AirState` (air control, fall gravity, var
 4. Add states. Player: `GroundState`, `AirState`, `JumpState`. Enemy: `PatrolState`.
 5. Player input: drag actions from an `.inputactions` asset into the fields: `Move Action` on `PlayerInputReader`, `Jump Action` on `AirState` and `JumpState`.
 6. Optional: put sprites on a child object and add `FacingFlipper` pointing to it.
+7. Optional: animations, see [Animation](#animation).
 
 Rigidbody2D **Gravity Scale** shapes the jump arc together with the states' settings; the demo uses 3.
 
@@ -162,7 +165,138 @@ Override `Priority` in code. Higher wins when several states can enter at once.
 | 0 (default) | Base movement: `GroundState`, `AirState`, `PatrolState` |
 | 1-9 | Variations of base movement: glide, wall slide, crouch |
 | 10 | Jumps and reactions: `JumpState`, double jump, wall jump, chase |
-| 20+ | Abilities that override everything: dash, ground pound, charge attack |
+| 20-29 | Abilities that override movement: dash, ground pound, charge attack |
+| 30 | Reactions: Hurt |
+| 40 | Death: never exits, so nothing interrupts it |
+
+## Animation
+
+Characters show their active state on an Animator. The state machine decides when states start and end (`CanEnter()`, `CanExit()`, `Priority`), the Animator only displays them, so the Animator graph has no transitions and can never disagree with gameplay.
+
+### Setup
+
+1. Put the sprites on a child (e.g. `Visual`, the one `FacingFlipper` flips) and add an **Animator** with your Animator Controller to it.
+2. Add **`CharacterAnimator`** to the character root. When added, it fills in the first Animator in children (inactive ones included) and adds an `AnimationEventRelay` next to it. If you assign the Animator later, the relay is added when the game starts.
+3. In each state's Inspector set **Animation State** to the Animator state to play while it is active. Leave it empty to keep the current animation (e.g. `JumpState`, which is active for one physics tick).
+
+Switches are instant (`Animator.Play`), as sprite sheets need: sprites cannot be blended. A state with the same Animation State as the previous state continues the animation instead of restarting it.
+
+### The Animator Controller
+
+States at the root of the Base Layer (no sub-state machines, other layers are not played), named by their short name; an unknown name logs a warning once. Do not add transitions: `CharacterAnimator` keeps the Animator in the active state's animation, so a transition would be undone. For example for the player:
+
+| Animator state | Content | Played by |
+|---|---|---|
+| `Locomotion` | 1D blend tree by `Speed`: Idle at 0, Run at 1 | `GroundState` |
+| `Air` | 1D blend tree by `VerticalSpeed`: Fall at -1, Rise at 1 | `AirState` |
+| `Hurt`, `Death`, `Cast` | single clips | your states |
+
+`CharacterAnimator` writes these parameters every frame if the controller has them (rename them in its Inspector; missing ones are skipped):
+
+| Parameter | Type | Value |
+|---|---|---|
+| `Speed` | Float | absolute horizontal speed, units per second |
+| `VerticalSpeed` | Float | vertical speed, positive when rising |
+| `Grounded` | Bool | `EnvironmentSensor2D.IsGrounded` |
+
+### Hurt and Death
+
+`IsAnimationFinished` is true once the state's clip has played to the end, so a reaction or an action ends with its clip and changing the clip changes the timing. It is also true when there is nothing to wait for (no `CharacterAnimator` or Animator, Animator disabled, empty or unknown Animation State), so a misconfigured character never gets stuck.
+
+Hurt is started from code (a test key now, damage later) through a flag that `CanEnter()` checks:
+
+```csharp
+using Yenotsoftware.KSE2DPlatformerFramework;
+
+public class PlayerHurtState : PlayerState
+{
+	private bool _requested;
+	private bool _active;
+
+	// Reactions override movement and abilities
+	public override int Priority => 30;
+
+	// Ignored while already hurt: one hit = one Hurt
+	public void Trigger()
+	{
+		if (!_active)
+			_requested = true;
+	}
+
+	public override bool CanEnter() => _requested;
+	public override bool CanExit() => IsAnimationFinished;
+
+	public override void Enter()
+	{
+		_requested = false;
+		_active = true;
+	}
+
+	public override void Exit() => _active = false;
+
+	public override void Tick(float deltaTime) => Motor.SetVelocityX(0f);
+}
+```
+
+`Trigger()` checks `_active` instead of clearing the flag in `Exit()` on purpose: a flag raised during Hurt would keep `CanEnter()` true after the clip, the machine would select the same state again, and it would never exit.
+
+Death is the same with `Priority => 40` and `CanExit() => false`, so nothing (Hurt included) interrupts it. Turn off **Loop Time** on its clip so it holds the last frame.
+
+A state cannot be shared between `PlayerController` and `EnemyController`, so the enemy gets its own copies inheriting `EnemyState`.
+
+### Animation Events
+
+1. In the clip add an event at the moment the action happens, pick the function **Raise** and put the event name in the **String** field.
+2. Override `OnAnimationEvent` in the state that plays the clip. It receives only events from its own animation, so a clip still playing for another state cannot repeat its action.
+
+For example a cast with the event `Cast` 0.3 s into a 0.7 s clip:
+
+```csharp
+using UnityEngine;
+using UnityEngine.InputSystem;
+using Yenotsoftware.KSE2DPlatformerFramework;
+
+public class CastState : PlayerState
+{
+	[SerializeField] private InputActionReference _castAction;
+
+	// An ability: above movement, below reactions
+	public override int Priority => 20;
+
+	public override bool CanEnter() => Sensor.IsGrounded && InputReader.WasPressed(_castAction.action);
+	public override bool CanExit() => IsAnimationFinished;
+
+	public override void Enter()
+	{
+		InputReader.ConsumePress(_castAction.action);
+		Motor.SetVelocityX(0f);
+	}
+
+	public override void OnAnimationEvent(string eventName)
+	{
+		if (eventName == "Cast")
+			Debug.Log("Cast");
+	}
+}
+```
+
+`OnAnimationEvent` runs inside the Animator update. Do not switch states there: set a flag that `CanEnter()` checks, and the switch happens on the next physics tick.
+
+Every event, from any clip, also goes to `CharacterAnimator.AnimationEventRaised`, e.g. for dust or sounds:
+
+```csharp
+GetComponent<CharacterAnimator>().AnimationEventRaised += eventName =>
+{
+	if (eventName == "Footstep")
+		_dust.Play();
+};
+```
+
+### Animation limitations
+
+- While the active state's `CanExit()` is false (a dash, a cast), no other state can start: Hurt and Death begin on the first tick after it ends. The trigger is not lost.
+- Blink with `SpriteRenderer.enabled`, not by deactivating the visual: while the Animator is inactive `IsAnimationFinished` is true, so Hurt would end at once.
+- Keep the Animator's **Culling Mode** at Always Animate (the default). With Cull Completely an off-screen Animator stops, and a state waiting for its animation stays in it; a warning is logged.
 
 ## Known limitations
 

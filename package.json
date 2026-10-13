@@ -1,7 +1,7 @@
 {
 	"name": "com.yenotsoftware.kse2dplatformerframework",
 	"displayName": "KSE 2D Platformer Framework",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"unity": "6000.3",
 	"description": "2D platformer framework for player and enemies",
 	"dependencies": {
@@ -18,7 +18,7 @@
 	"samples": [
 		{
 			"displayName": "Demo",
-			"description": "Playable demo scene with a player (run, jump), a patrolling enemy and ready-to-use prefabs and input actions",
+			"description": "Playable demo scene with an animated player (run, jump, Hurt on H) and patrolling enemies, with prefabs, input actions and Animator controllers",
 			"path": "Samples~/Demo"
 		}
 	]

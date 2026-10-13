@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-13
+
+### Added
+
+- `CharacterAnimator`: plays the active state's animation on an Animator instantly (`Animator.Play`, for sprite sheets), writes `Speed`, `VerticalSpeed` and `Grounded` parameters, puts the active state's animation back whenever the Animator leaves it (re-enable, pooling, `Rebind`, a swapped Animator Controller, whose parameters are looked up again), warns about unknown states, missing Animator and Cull Completely. The Animator Controller must have no transitions. When added, it fills in the Animator from its children (inactive ones included) and adds the relay next to it, with Undo.
+- `ComponentState.AnimationState` (Inspector field), `IsAnimationFinished` (end states with their clip, never stuck) and `OnAnimationEvent` (events from the state's own animation only).
+- `AnimationEventRelay`: forwards Animation Events (function `Raise`, String parameter) from the Animator's GameObject; `CharacterAnimator.AnimationEventRaised` for VFX and sound.
+- Demo sample: Animator controllers and clips (locomotion blend tree, air, hurt, patrol), `PlayerHurtState` with a test key (H).
+- README: Animation section with Hurt and Cast examples, priorities 30 (reactions) and 40 (death).
+
+### Changed
+
+- Package depends on `com.unity.modules.animation`.
+- `StateController` passes each new state to a `CharacterAnimator` on the same GameObject. Characters without one behave as in 0.1.0.
+
+### Upgrade notes
+
+- `ComponentState` now serializes a field named `_animationState`. If one of your states declares a serialized field with the same name, rename it: Unity cannot serialize the same field name in a class and its base class.
+- Abilities belong at priorities 20-29, below reactions (30) and death (40), so Hurt and Death can follow them.
+
 ## [0.1.0] - 2026-10-04
 
 ### Added
