@@ -6,10 +6,11 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 	/// <summary>
 	/// Priority-based state machine.
 	///
-	/// Every tick, unless the current state blocks exiting,
-	/// it activates the highest-priority state
+	/// Every tick it activates the highest-priority state
 	/// whose <see cref="IState.CanEnter"/> is true.
-	/// 
+	/// While the current state blocks exiting, only higher-priority states
+	/// with <see cref="IState.CanInterrupt"/> are considered.
+	///
 	/// Ties go to the state listed first.
 	/// If no state can enter, the current state stays.
 	///
@@ -42,17 +43,14 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 		/// </summary>
 		public void Tick(float deltaTime)
 		{
-			if (Current == null || Current.CanExit())
+			TState next = Select();
+			if (next != null && next != Current)
 			{
-				TState next = Select();
-				if (next != null && next != Current)
-				{
-					TState previous = Current;
-					previous?.Exit();
-					Current = next;
-					next.Enter();
-					StateChanged?.Invoke(previous, next);
-				}
+				TState previous = Current;
+				previous?.Exit();
+				Current = next;
+				next.Enter();
+				StateChanged?.Invoke(previous, next);
 			}
 
 			Current?.Tick(deltaTime);
@@ -60,9 +58,13 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 
 		private TState Select()
 		{
+			bool locked = Current != null && !Current.CanExit();
 			TState best = null;
 			foreach (TState state in _states)
 			{
+				// Skipped before CanEnter, so without interrupters a locked state behaves as before
+				if (locked && !(state.CanInterrupt && state.Priority > Current.Priority))
+					continue;
 				if ((best == null || state.Priority > best.Priority) && state.CanEnter())
 					best = state;
 			}
