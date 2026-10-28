@@ -68,7 +68,7 @@ Included states: `GroundState` (run), `AirState` (air control, fall gravity, var
 
 1. Add a `Collider2D` (e.g. `BoxCollider2D`) with a **frictionless Physics Material 2D** (friction 0), otherwise characters stick to walls. The demo includes one.
 2. Add `PlayerController` or `EnemyController`. It adds `Rigidbody2D`, `PlatformerMotor2D` and `EnvironmentSensor2D` (and `PlayerInputReader` for the player).
-3. On `EnvironmentSensor2D`, set **Ground Layers** to your level layer only (e.g. Ground). Never include Player or Enemy layers, or characters will treat each other as walls.
+3. On `EnvironmentSensor2D`, set **Ground Layers** to your level layer only (e.g. Ground). Never include Player or Enemy layers, or characters will stand on each other's checks as ground. To make other characters block like walls (enemies turn at each other, a charge stops at the enemy in its way), put their layers into **Obstacle Layers** instead (e.g. Enemy on enemy prefabs): those count as walls only.
 4. Add states. Player: `GroundState`, `AirState`, `JumpState`. Enemy: `PatrolState`.
 5. Player input: drag actions from an `.inputactions` asset into the fields: `Move Action` on `PlayerInputReader`, `Jump Action` on `AirState` and `JumpState`.
 6. Optional: put sprites on a child object and add `FacingFlipper` pointing to it.
