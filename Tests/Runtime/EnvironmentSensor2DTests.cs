@@ -68,6 +68,25 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 		}
 
 		[UnityTest]
+		public IEnumerator BodyOnObstacleLayer_IsWallOnlyWhenListed()
+		{
+			// Another character to the right, on built-in layer 4 (Water) instead of the ground layer
+			GameObject other = CreateBox("Other", new Vector2(1f, 0.5f), Vector2.one);
+			other.layer = 4;
+			yield return SettlePhysics();
+
+			_sensor.Refresh();
+			Assert.IsFalse(_sensor.IsTouchingWallRight, "not listed: ignored as before");
+
+			AnimatorTestUtility.SetField(_sensor, "_obstacleLayers", (LayerMask)(1 << 4));
+			_sensor.Refresh();
+			Object.Destroy(other);
+
+			Assert.IsTrue(_sensor.IsTouchingWallRight);
+			Assert.IsTrue(_sensor.IsGrounded);
+		}
+
+		[UnityTest]
 		public IEnumerator MovingUpward_IsNotGrounded()
 		{
 			yield return SettlePhysics();

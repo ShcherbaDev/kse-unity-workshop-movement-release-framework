@@ -18,8 +18,11 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 		private const float MaxGroundedUpwardSpeed = 0.1f;
 		private const float LedgeRayStartHeight = 0.05f;
 
-		[SerializeField, Tooltip("Layers that count as ground, walls and ceilings. Do not include characters")]
+		[SerializeField, Tooltip("Layers that count as ground, walls and ceilings. Do not include characters (use Obstacle Layers)")]
 		private LayerMask _groundLayers = 1;
+
+		[SerializeField, Tooltip("Layers that count as walls but never as ground or ceilings, e.g. Enemy, so enemies turn at each other instead of pushing")]
+		private LayerMask _obstacleLayers;
 
 		[SerializeField, Min(0.001f)] private float _groundCheckDistance = 0.05f;
 		[SerializeField, Min(0.001f)] private float _wallCheckDistance = 0.05f;
@@ -101,9 +104,11 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 			if (IsGrounded)
 				LastGroundedTime = Time.time;
 
+			IsTouchingCeiling = CastForSurface(filter, Vector2.up, _ceilingCheckDistance);
+
+			filter.SetLayerMask(_groundLayers | _obstacleLayers);
 			IsTouchingWallLeft = CastForSurface(filter, Vector2.left, _wallCheckDistance);
 			IsTouchingWallRight = CastForSurface(filter, Vector2.right, _wallCheckDistance);
-			IsTouchingCeiling = CastForSurface(filter, Vector2.up, _ceilingCheckDistance);
 		}
 
 		// Casts all the body's colliders (ignoring its own)

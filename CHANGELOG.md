@@ -5,7 +5,20 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.0] - 2026-10-28
+
+### Added
+
+- `IState.CanInterrupt` / `ComponentState.CanInterrupt` (false by default): a higher-priority state with it replaces an active state whose `CanExit()` is false, so Death no longer waits for Hurt to finish and reactions can cut a dash or an attack.
+- `EnvironmentSensor2D` **Obstacle Layers** (empty by default): layers that count as walls but never as ground or ceilings. Put Enemy there on enemy prefabs, and `PatrolState` turns at other enemies and charges stop at them instead of running in place.
+- Demo `PlayerHurtState` and the README Hurt and Death examples use `CanInterrupt => true`.
+- README: impulse states (`JumpState`) show the rise through the `Air` blend tree.
+
+### Upgrade notes
+
+- Nothing changes until you opt in: existing states keep their behaviour and existing prefabs keep an empty Obstacle Layers.
+- To let Death interrupt Hurt (and abilities), add `public override bool CanInterrupt => true;` to your Death state; add it to Hurt states that should cut abilities.
+- `IState` implementations outside `ComponentState` do not need changes: `CanInterrupt` has a default implementation.
 
 ## [0.2.0] - 2026-10-13
 

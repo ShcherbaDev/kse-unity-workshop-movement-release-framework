@@ -20,6 +20,13 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 		public virtual int Priority => 0;
 
 		/// <summary>
+		/// True lets this state replace an active state whose <see cref="CanExit"/> is false,
+		/// when this state has a higher priority.
+		/// Use it for reactions and death: <c>public override bool CanInterrupt => true</c>
+		/// </summary>
+		public virtual bool CanInterrupt => false;
+
+		/// <summary>
 		/// Animator state that <see cref="CharacterAnimator"/> plays while this state is active.
 		/// Empty keeps the current animation
 		/// </summary>

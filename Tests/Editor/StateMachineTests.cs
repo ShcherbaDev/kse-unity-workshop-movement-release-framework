@@ -20,6 +20,7 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Editor.Tests
 			}
 
 			public int Priority { get; }
+			public bool CanInterrupt { get; set; }
 			public bool CanEnter() => Enterable;
 			public bool CanExit() => Exitable;
 			public void Enter() => Log.Add($"enter {Name}");
@@ -77,6 +78,35 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Editor.Tests
 			_machine.Tick(0.02f);
 
 			Assert.AreSame(_low, _machine.Current);
+		}
+
+		[Test]
+		public void HigherPriorityInterrupter_ReplacesStateThatCannotExit()
+		{
+			_machine.Tick(0.02f);
+			_log.Clear();
+			_low.Exitable = false;
+			_high.Enterable = true;
+			_high.CanInterrupt = true;
+
+			_machine.Tick(0.02f);
+
+			Assert.AreSame(_high, _machine.Current);
+			CollectionAssert.AreEqual(new[] { "exit low", "enter high", "tick high" }, _log);
+		}
+
+		[Test]
+		public void Interrupter_WithoutHigherPriority_StaysBlocked()
+		{
+			var same = new FakeState("same", 0, _log) { Enterable = false, CanInterrupt = true };
+			var machine = new StateMachine<FakeState>(new[] { _low, same });
+			machine.Tick(0.02f);
+			_low.Exitable = false;
+			same.Enterable = true;
+
+			machine.Tick(0.02f);
+
+			Assert.AreSame(_low, machine.Current);
 		}
 
 		[Test]
