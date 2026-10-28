@@ -1,7 +1,7 @@
 {
 	"name": "com.yenotsoftware.kse2dplatformerframework",
 	"displayName": "KSE 2D Platformer Framework",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"unity": "6000.3",
 	"description": "2D platformer framework for player and enemies",
 	"dependencies": {

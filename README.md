@@ -13,13 +13,13 @@
 Window > Package Manager > + > Install package from git URL:
 
 ```
-https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework.git#v0.2.0
+https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework.git#v0.3.0
 ```
 
 Or add it to `Packages/manifest.json`:
 
 ```json
-"com.yenotsoftware.kse2dplatformerframework": "https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework.git#v0.2.0"
+"com.yenotsoftware.kse2dplatformerframework": "https://github.com/ShcherbaDev/kse-unity-workshop-movement-release-framework.git#v0.3.0"
 ```
 
 ### Updating
