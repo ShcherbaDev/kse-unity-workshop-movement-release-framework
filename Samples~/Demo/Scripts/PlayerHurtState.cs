@@ -15,6 +15,8 @@ namespace KSE2DPlatformerDemo
 
 		// Reactions override movement and abilities
 		public override int Priority => 30;
+		// Also cuts abilities that cannot exit yet (dash, attack)
+		public override bool CanInterrupt => true;
 
 		/// <summary>
 		/// Ignored while already hurt: one hit = one Hurt

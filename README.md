@@ -42,7 +42,7 @@ Every character runs a **state machine** made of components:
 
 - A **controller** (`PlayerController` or `EnemyController`) collects all **state** components on the same GameObject and ticks one of them every `FixedUpdate`.
 - Each state decides on its own when it wants to be active. There is no transition table, so adding a mechanic never requires editing existing states or the package.
-- Every physics tick the controller activates the **highest-priority state whose `CanEnter()` returns true**. The active state can refuse to be interrupted with `CanExit()` (e.g. a dash in progress).
+- Every physics tick the controller activates the **highest-priority state whose `CanEnter()` returns true**. The active state can refuse to be interrupted with `CanExit()` (e.g. a dash in progress); only higher-priority states with `CanInterrupt => true` (Hurt, Death) get through.
 
 ```
 State lifecycle:  CanEnter() -> Enter() -> Tick() every physics tick -> Exit()
@@ -166,8 +166,10 @@ Override `Priority` in code. Higher wins when several states can enter at once.
 | 1-9 | Variations of base movement: glide, wall slide, crouch |
 | 10 | Jumps and reactions: `JumpState`, double jump, wall jump, chase |
 | 20-29 | Abilities that override movement: dash, ground pound, charge attack |
-| 30 | Reactions: Hurt |
-| 40 | Death: never exits, so nothing interrupts it |
+| 30 | Reactions: Hurt. `CanInterrupt => true`, so they cut abilities that cannot exit yet |
+| 40 | Death: `CanInterrupt => true` and never exits, so it cuts Hurt and abilities and nothing interrupts it |
+
+`CanExit() => false` blocks every state except higher-priority ones with `CanInterrupt => true`. `CanInterrupt` is false by default, so a state never gets cut off unless a stronger state asks for it.
 
 ## Animation
 
@@ -215,6 +217,8 @@ public class PlayerHurtState : PlayerState
 
 	// Reactions override movement and abilities
 	public override int Priority => 30;
+	// Also cuts abilities that cannot exit yet (dash, attack)
+	public override bool CanInterrupt => true;
 
 	// Ignored while already hurt: one hit = one Hurt
 	public void Trigger()
@@ -240,7 +244,7 @@ public class PlayerHurtState : PlayerState
 
 `Trigger()` checks `_active` instead of clearing the flag in `Exit()` on purpose: a flag raised during Hurt would keep `CanEnter()` true after the clip, the machine would select the same state again, and it would never exit.
 
-Death is the same with `Priority => 40` and `CanExit() => false`, so nothing (Hurt included) interrupts it. Turn off **Loop Time** on its clip so it holds the last frame.
+Death is the same with `Priority => 40`, `CanInterrupt => true` and `CanExit() => false`: it starts at once even during Hurt or a dash, and nothing interrupts it. Turn off **Loop Time** on its clip so it holds the last frame.
 
 A state cannot be shared between `PlayerController` and `EnemyController`, so the enemy gets its own copies inheriting `EnemyState`.
 
@@ -294,7 +298,8 @@ GetComponent<CharacterAnimator>().AnimationEventRaised += eventName =>
 
 ### Animation limitations
 
-- While the active state's `CanExit()` is false (a dash, a cast), no other state can start: Hurt and Death begin on the first tick after it ends. The trigger is not lost.
+- While the active state's `CanExit()` is false (a dash, a cast), only higher-priority states with `CanInterrupt => true` can start. Others (e.g. a Hurt without it) begin on the first tick after it ends; the trigger is not lost.
+- An impulse state active for one tick (`JumpState`) cannot hold its own animation: the next state replaces it. Show the rise through the `Air` blend tree by `VerticalSpeed` instead (see the table above).
 - Blink with `SpriteRenderer.enabled`, not by deactivating the visual: while the Animator is inactive `IsAnimationFinished` is true, so Hurt would end at once.
 - Keep the Animator's **Culling Mode** at Always Animate (the default). With Cull Completely an off-screen Animator stops, and a state waiting for its animation stays in it; a warning is logged.
 
