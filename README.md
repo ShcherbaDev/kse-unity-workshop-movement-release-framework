@@ -61,6 +61,10 @@ The spec's "player states" and "enemy behaviours" are the same thing here: `Play
 | `FacingFlipper` | Mirrors a visual child to match `FacingDirection` |
 | `CharacterAnimator` | Plays the active state's animation on the Animator, writes `Speed`/`VerticalSpeed`/`Grounded`, routes Animation Events, plays one-shots with `PlayOneShot(stateName)`. See [Animation](#animation) |
 | `AnimationEventRelay` | Sits next to the Animator and passes its Animation Events to `CharacterAnimator`. Added automatically |
+| `Health` | Health with `TakeDamage(amount)`, invulnerability after a hit and the events On Damaged, On Died, On Changed. See [Combat](#combat) |
+| `Hitbox2D` | Attack area. Damages every `Health` on the target layers inside its box, by itself on an Animation Event or through `Hit()` |
+| `ContactDamage2D` | Damages every `Health` on the target layers that touches this object's colliders |
+| `HealthBar` | Shows a `Health` by scaling a sprite |
 
 Included states: `GroundState` (run), `AirState` (air control, fall gravity, variable jump height), `JumpState` (jump buffer, coyote time, optional [air jumps](#double-jump)), `PatrolState` (enemy walks and turns at walls and ledges).
 
@@ -73,6 +77,7 @@ Included states: `GroundState` (run), `AirState` (air control, fall gravity, var
 5. Player input: drag actions from an `.inputactions` asset into the fields: `Move Action` on `PlayerInputReader`, `Jump Action` on `AirState` and `JumpState`.
 6. Optional: put sprites on a child object and add `FacingFlipper` pointing to it.
 7. Optional: animations, see [Animation](#animation).
+8. Optional: health and damage, see [Combat](#combat).
 
 Rigidbody2D **Gravity Scale** shapes the jump arc together with the states' settings; the demo uses 3.
 
@@ -211,7 +216,7 @@ States at the root of the Base Layer (no sub-state machines, other layers are no
 
 `IsAnimationFinished` is true once the state's clip has played to the end, so a reaction or an action ends with its clip and changing the clip changes the timing. It is also true when there is nothing to wait for (no `CharacterAnimator` or Animator, Animator disabled, empty or unknown Animation State), so a misconfigured character never gets stuck.
 
-Hurt is started from code (a test key now, damage later) through a flag that `CanEnter()` checks:
+Hurt is started from outside (a test key, or the On Damaged event of `Health`, see [Combat](#combat)) through a flag that `CanEnter()` checks:
 
 ```csharp
 using Yenotsoftware.KSE2DPlatformerFramework;
@@ -317,6 +322,48 @@ The one-shot ends with its clip, and then the active state's animation starts ag
 - An impulse state active for one tick (`JumpState`) cannot hold its own animation: the next state replaces it. Show the rise through the `Air` blend tree by `VerticalSpeed` instead (see the table above), or play a [one-shot](#one-shot-animations).
 - Blink with `SpriteRenderer.enabled`, not by deactivating the visual: while the Animator is inactive `IsAnimationFinished` is true, so Hurt would end at once.
 - Keep the Animator's **Culling Mode** at Always Animate (the default). With Cull Completely an off-screen Animator stops, and a state waiting for its animation stays in it; a warning is logged.
+
+## Combat
+
+Combat is four components and no code. `Health` holds the health, `Hitbox2D` and `ContactDamage2D` take it away, and `HealthBar` shows it. The reactions stay your own states, and `Health` starts them through events that you connect in the Inspector.
+
+```
+attack clip -> Animation Event "Hit" -> Hitbox2D -> Health.TakeDamage -> On Damaged -> your Hurt state
+                    touching a ContactDamage2D ->                     -> On Died    -> your Death state
+                                                                      -> On Changed -> HealthBar
+```
+
+### Combat setup
+
+1. **Health.** Add `Health` to the root of every character that can be hurt. Set **Max Health** and **Invulnerability Time**, the seconds after a hit during which further hits are ignored.
+2. **Reactions.** In **On Damaged** press +, drag the character itself into the object field and pick the `Trigger` method of its Hurt state, e.g. `PlayerHurtState > Trigger ()`. Do the same in **On Died** with the Death state. These are the states from [Hurt and Death](#hurt-and-death). A deadly hit raises On Died only, so Hurt and Death never start together.
+3. **Attack.** Add `Hitbox2D` to the attacker's root. Set **Target Layers**, place the red box with **Offset** and **Size** (select the character to see it) and put the name of the attack clip's Animation Event into **Animation Event**. The box mirrors with the character's facing. The attack state keeps its own `OnAnimationEvent`, so a `Debug.Log` there still works.
+4. **Touch.** For an enemy that hurts by touch, or for spikes, add `ContactDamage2D` next to the collider and set **Target Layers**. The collider can be solid or a trigger. The damage repeats while the touch lasts, once per Invulnerability Time of the target.
+5. **Indicator.** Add an empty child `Health Bar` above the character and put `HealthBar` on it. Under it add an empty `Fill` at the left end of the bar, and under `Fill` a sprite shifted right by half its width. Drag `Fill` into the **Fill** field. Keep the bar outside the child that `FacingFlipper` flips, or it mirrors with the character.
+
+### Combat layers
+
+Targets are found by the layer of their colliders, and their `Health` is looked up in the collider's parents.
+
+| Target Layers of | On the player | On an enemy | On spikes |
+|---|---|---|---|
+| `Hitbox2D` | Enemy | Player | |
+| `ContactDamage2D` | | Player | Player |
+
+A solid `ContactDamage2D` collider needs its layer to collide with the target's layer in Project Settings > Physics 2D > Layer Collision Matrix. If characters pass through each other in your game, give the enemy a trigger collider for the touch.
+
+### Combat from code
+
+- `Health.TakeDamage(amount)` returns false for an ignored hit. `Current`, `Max`, `Normalized` and `IsDead` describe the health.
+- `Health.Damaged`, `Died` and `Changed` are UnityEvents, so `health.Died.AddListener(...)` works too. `Changed` passes the remaining part from 0 to 1, which also fits `Slider.value` if you prefer a UI bar.
+- `Hitbox2D.Hit()` hits at once and returns the number of damaged targets. Leave Animation Event empty and call it from your state for an attack without a clip event.
+
+### Combat limitations
+
+- Unity stops sending touches for a Rigidbody2D that fell asleep, so a character standing still on spikes stops taking damage. Set **Sleeping Mode** to Never Sleep on the player's Rigidbody2D.
+- `Hitbox2D` hits at one moment. An attack that damages during a whole swing needs several Animation Events.
+- `Hitbox2D` reacts to its Animation Event from any clip of the character, so give every attack its own event name.
+- There is no healing and no respawn with full health yet. Reload the scene on death.
 
 ## Known limitations
 
