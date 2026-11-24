@@ -59,10 +59,10 @@ The spec's "player states" and "enemy behaviours" are the same thing here: `Play
 | `PlayerInputReader` | `Move` (Vector2) and buffered button presses: `WasPressed(action, bufferTime)`, `ConsumePress(action)` |
 | `TargetSensor2D` | `FindTarget()`: a target (e.g. the player) on the given layers within a radius |
 | `FacingFlipper` | Mirrors a visual child to match `FacingDirection` |
-| `CharacterAnimator` | Plays the active state's animation on the Animator, writes `Speed`/`VerticalSpeed`/`Grounded`, routes Animation Events. See [Animation](#animation) |
+| `CharacterAnimator` | Plays the active state's animation on the Animator, writes `Speed`/`VerticalSpeed`/`Grounded`, routes Animation Events, plays one-shots with `PlayOneShot(stateName)`. See [Animation](#animation) |
 | `AnimationEventRelay` | Sits next to the Animator and passes its Animation Events to `CharacterAnimator`. Added automatically |
 
-Included states: `GroundState` (run), `AirState` (air control, fall gravity, variable jump height), `JumpState` (jump buffer, coyote time), `PatrolState` (enemy walks and turns at walls and ledges).
+Included states: `GroundState` (run), `AirState` (air control, fall gravity, variable jump height), `JumpState` (jump buffer, coyote time, optional [air jumps](#double-jump)), `PatrolState` (enemy walks and turns at walls and ledges).
 
 ## Setting up a character
 
@@ -79,6 +79,12 @@ Rigidbody2D **Gravity Scale** shapes the jump arc together with the states' sett
 ### Input actions
 
 Deadzones and keyboard behaviour live in the `.inputactions` asset, not in code. For WASD / arrows set the 2D Vector composite **Mode = Digital**; with the default "Digital Normalized", pressing two keys (e.g. W + D) runs at 71% speed.
+
+### Double jump
+
+On `JumpState` set **Air Jumps** to the number of extra jumps in the air (1 is a double jump) and **Air Jump Height**. A jump within the coyote time still counts as the ground jump, and landing gives the air jumps back. `JumpState.AirJumpsUsed` tells your effects which jump it was.
+
+To give the air jump a clip of its own, add an Animator state for it and put its name into **Air Jump Animation State**. It plays once over the air animation, see [One-shot animations](#one-shot-animations).
 
 ## Adding a player mechanic
 
@@ -296,10 +302,19 @@ GetComponent<CharacterAnimator>().AnimationEventRaised += eventName =>
 };
 ```
 
+### One-shot animations
+
+A one-shot is an Animator state played once over the active state's animation, for a moment that is not a gameplay state of its own, such as the flip of an air jump or a landing puff.
+
+- From a state call `PlayOneShotAnimation("Flip")`. `JumpState` does it for **Air Jump Animation State**.
+- From anywhere else call `CharacterAnimator.PlayOneShot("Flip")`. It also fits a UnityEvent.
+
+The one-shot ends with its clip, and then the active state's animation starts again. A state with another animation cuts it at once (landing, a dash, Hurt). One exception makes the air jump work. A one-shot from a state without its own Animation State (`JumpState`) stays over the state that follows (`AirState`).
+
 ### Animation limitations
 
 - While the active state's `CanExit()` is false (a dash, a cast), only higher-priority states with `CanInterrupt => true` can start. Others (e.g. a Hurt without it) begin on the first tick after it ends; the trigger is not lost.
-- An impulse state active for one tick (`JumpState`) cannot hold its own animation: the next state replaces it. Show the rise through the `Air` blend tree by `VerticalSpeed` instead (see the table above).
+- An impulse state active for one tick (`JumpState`) cannot hold its own animation: the next state replaces it. Show the rise through the `Air` blend tree by `VerticalSpeed` instead (see the table above), or play a [one-shot](#one-shot-animations).
 - Blink with `SpriteRenderer.enabled`, not by deactivating the visual: while the Animator is inactive `IsAnimationFinished` is true, so Hurt would end at once.
 - Keep the Animator's **Culling Mode** at Always Animate (the default). With Cull Completely an off-screen Animator stops, and a state waiting for its animation stays in it; a warning is logged.
 

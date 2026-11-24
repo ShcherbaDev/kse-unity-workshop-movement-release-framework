@@ -42,14 +42,19 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 		/// Use it to end reactions and actions with their clip:
 		/// <c>public override bool CanExit() => IsAnimationFinished;</c>
 		/// </summary>
-		protected bool IsAnimationFinished
+		protected bool IsAnimationFinished => !CharacterAnimator || CharacterAnimator.IsAnimationFinished(this);
+
+		private CharacterAnimator CharacterAnimator => _characterAnimator ? _characterAnimator : _characterAnimator = GetComponent<CharacterAnimator>();
+
+		/// <summary>
+		/// Plays an Animator state once over the current animation, see <see cref="CharacterAnimator.PlayOneShot(string)"/>.
+		/// From a state without its own animation it carries over into the state that follows.
+		/// Does nothing without a <see cref="CharacterAnimator"/> or with an empty name
+		/// </summary>
+		protected void PlayOneShotAnimation(string animationState)
 		{
-			get
-			{
-				if (!_characterAnimator)
-					_characterAnimator = GetComponent<CharacterAnimator>();
-				return !_characterAnimator || _characterAnimator.IsAnimationFinished(this);
-			}
+			if (CharacterAnimator)
+				CharacterAnimator.PlayOneShot(animationState, string.IsNullOrEmpty(_animationState));
 		}
 
 		/// <summary>

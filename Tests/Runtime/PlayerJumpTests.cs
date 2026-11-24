@@ -11,6 +11,9 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 	public class PlayerJumpTests : InputTestFixture
 	{
 		private const float JumpHeight = 3f; // JumpState default
+		private const float AirJumpHeight = 2.5f; // JumpState default
+		// A held jump peaks after sqrt(2 * height / gravity) at gravity scale 3
+		private const float TimeToPeak = 0.45f;
 		// Physics steps in discrete ticks, so the peak lands slightly below the exact formula
 		private const float HeightTolerance = 0.25f;
 
@@ -111,10 +114,63 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 			Assert.Less(peak, JumpHeight + HeightTolerance);
 		}
 
+		[UnityTest]
+		public IEnumerator AirJump_AddsItsHeight_AndIsUsedUp()
+		{
+			SetField(_player.GetComponent<JumpState>(), "_airJumps", 1);
+			yield return Wait(0.2f);
+
+			float peak = 0f;
+			yield return JumpAirJumpAndPressAgain(h => peak = h);
+
+			// A third jump would add its height on top
+			Assert.AreEqual(JumpHeight + AirJumpHeight, peak, 0.5f);
+		}
+
+		[UnityTest]
+		public IEnumerator Landing_RestoresAirJump()
+		{
+			SetField(_player.GetComponent<JumpState>(), "_airJumps", 1);
+			yield return Wait(0.2f);
+			yield return JumpAirJumpAndPressAgain(_ => { });
+			yield return Wait(0.3f);
+
+			float peak = 0f;
+			yield return JumpAirJumpAndPressAgain(h => peak = h);
+
+			Assert.AreEqual(JumpHeight + AirJumpHeight, peak, 0.5f);
+		}
+
+		// Jump, air jump at the peak, one more press while falling. Ends on the ground
+		private IEnumerator JumpAirJumpAndPressAgain(System.Action<float> report)
+		{
+			float startY = _player.transform.position.y;
+			float peak = 0f;
+
+			Press(_keyboard.spaceKey);
+			yield return Wait(TimeToPeak);
+			Release(_keyboard.spaceKey);
+			yield return new WaitForFixedUpdate();
+			Press(_keyboard.spaceKey);
+			yield return TrackPeak(0.5f, startY, h => peak = h);
+			Release(_keyboard.spaceKey);
+			yield return new WaitForFixedUpdate();
+			Press(_keyboard.spaceKey);
+			yield return TrackPeak(1.5f, startY, h => peak = Mathf.Max(peak, h));
+			Release(_keyboard.spaceKey);
+
+			report(peak);
+		}
+
 		private static void SetActionReference(Component component, string fieldName, InputAction action)
 		{
+			SetField(component, fieldName, InputActionReference.Create(action));
+		}
+
+		private static void SetField(Component component, string fieldName, object value)
+		{
 			FieldInfo field = component.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
-			field.SetValue(component, InputActionReference.Create(action));
+			field.SetValue(component, value);
 		}
 
 		private static IEnumerator Wait(float seconds)

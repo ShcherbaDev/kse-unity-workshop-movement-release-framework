@@ -5,6 +5,18 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `JumpState` has **Air Jumps** (0 by default), **Air Jump Height** and **Air Jump Animation State**. They add extra jumps in the air, so a double jump no longer needs its own state tied to `AirState`. `JumpState.AirJumpsUsed` for effects.
+- `CharacterAnimator.PlayOneShot(stateName)` and `ComponentState.PlayOneShotAnimation(stateName)` play an Animator state once over the active state's animation. It ends with its clip or when a state with another animation starts.
+
+### Upgrade notes
+
+- Nothing changes until you set Air Jumps above 0.
+- To replace a custom double jump state, set Air Jumps to 1, copy its height and Animator state name into `JumpState`, then remove the state.
+
 ## [0.3.0] - 2026-10-28
 
 ### Added
