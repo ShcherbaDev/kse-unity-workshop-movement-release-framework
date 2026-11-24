@@ -5,16 +5,22 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - 2026-11-24
 
 ### Added
 
+- Combat without code, see the README section Combat.
+  - `Health` holds the health, ignores hits during **Invulnerability Time** and raises the UnityEvents **On Damaged** (a survived hit), **On Died** and **On Changed** (remaining part from 0 to 1). Connect the `Trigger` methods of your Hurt and Death states to them in the Inspector.
+  - `Hitbox2D` damages every `Health` on its **Target Layers** inside a box that mirrors with the facing. It hits by itself on the Animation Event named in **Animation Event**, or through `Hit()`.
+  - `ContactDamage2D` damages on touch, for enemies that ram and for spikes.
+  - `HealthBar` shows a `Health` by scaling a sprite.
 - `JumpState` has **Air Jumps** (0 by default), **Air Jump Height** and **Air Jump Animation State**. They add extra jumps in the air, so a double jump no longer needs its own state tied to `AirState`. `JumpState.AirJumpsUsed` for effects.
 - `CharacterAnimator.PlayOneShot(stateName)` and `ComponentState.PlayOneShotAnimation(stateName)` play an Animator state once over the active state's animation. It ends with its clip or when a state with another animation starts.
 
 ### Upgrade notes
 
-- Nothing changes until you set Air Jumps above 0.
+- Nothing changes until you add the new components or set Air Jumps above 0.
+- Test triggers for Hurt and Death can stay next to `Health`: both call the same `Trigger` methods.
 - To replace a custom double jump state, set Air Jumps to 1, copy its height and Animator state name into `JumpState`, then remove the state.
 
 ## [0.3.0] - 2026-10-28
