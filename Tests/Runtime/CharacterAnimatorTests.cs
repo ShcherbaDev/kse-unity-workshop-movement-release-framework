@@ -215,6 +215,43 @@ namespace Yenotsoftware.KSE2DPlatformerFramework.Tests
 			CollectionAssert.IsEmpty(missing.Events);
 		}
 
+		[UnityTest]
+		public IEnumerator OneShot_PlaysOverStateAnimation_ThenStateAnimationReturns()
+		{
+			CreateCharacter();
+			TestAnimatedState run = AddState("Run");
+			yield return Activate();
+			_characterAnimator.ApplyState(run);
+
+			_characterAnimator.PlayOneShot("Hurt");
+			Assert.AreEqual(Animator.StringToHash("Hurt"), CurrentStateHash(), "One-shot not played");
+			Assert.IsFalse(run.Finished, "State counts as finished under the one-shot");
+
+			yield return new WaitForSeconds(ClipLength + 0.1f);
+			yield return null;
+			Assert.AreEqual(Animator.StringToHash("Run"), CurrentStateHash(), "State animation did not return");
+		}
+
+		[UnityTest]
+		public IEnumerator OneShot_FromStateWithoutAnimation_StaysOverNextState_UntilAnotherAnimation()
+		{
+			CreateCharacter();
+			TestAnimatedState run = AddState("Run");
+			TestAnimatedState idle = AddState("Idle");
+			TestAnimatedState empty = AddState("");
+			yield return Activate();
+			_characterAnimator.ApplyState(run);
+
+			// An air jump runs JumpState.Enter first, then JumpState and AirState are applied
+			_characterAnimator.PlayOneShot("Hurt", true);
+			_characterAnimator.ApplyState(empty);
+			_characterAnimator.ApplyState(idle);
+			Assert.AreEqual(Animator.StringToHash("Hurt"), CurrentStateHash(), "Next state cut the one-shot");
+
+			_characterAnimator.ApplyState(run);
+			Assert.AreEqual(Animator.StringToHash("Run"), CurrentStateHash(), "Another animation did not cut the one-shot");
+		}
+
 		private void CreateCharacter()
 		{
 			// Built inactive so every component exists before Awake

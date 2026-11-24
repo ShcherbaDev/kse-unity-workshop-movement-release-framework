@@ -14,7 +14,9 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 	/// The Animator graph must have no transitions:
 	/// the state machine decides, the Animator only displays.
 	/// Whenever the Animator leaves the active state's animation (re-enable, pooling, Rebind, a new controller)
-	/// it is put back
+	/// it is put back.
+	///
+	/// <see cref="PlayOneShot(string)"/> plays one more animation over the active state's animation
 	/// </summary>
 	[RequireComponent(typeof(PlatformerMotor2D))]
 	[DisallowMultipleComponent]
@@ -45,6 +47,10 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 		private ComponentState _state;
 		// Last state hash actually played, 0 when the animation must be applied again
 		private int _playedHash;
+		// One-shot playing over the active state's animation, 0 when none
+		private int _oneShotHash;
+		// The one-shot came from a state without its own animation, so the next state's animation goes under it
+		private bool _oneShotCarries;
 
 		/// <summary>
 		/// Raised for every Animation Event with its String parameter,
@@ -94,16 +100,55 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 				_playedHash = 0;
 			}
 
-			if (_playedHash == 0)
+			if (_oneShotHash != 0 && !IsPlaying(_oneShotHash))
+				StopOneShot();
+
+			// The active state's animation comes back when the one-shot ends
+			if (_oneShotHash == 0)
 			{
-				if (_state)
-					ApplyState(_state);
+				if (_playedHash == 0)
+				{
+					if (_state)
+						ApplyState(_state);
+				}
+				// Unity puts the Animator back to its default state on re-enable or Rebind;
+				// without transitions nothing else moves it away
+				else if (_animator.GetCurrentAnimatorStateInfo(0).shortNameHash != _playedHash)
+					Play(_playedHash);
 			}
-			// Unity puts the Animator back to its default state on re-enable or Rebind;
-			// without transitions nothing else moves it away
-			else if (_animator.GetCurrentAnimatorStateInfo(0).shortNameHash != _playedHash)
-				Play(_playedHash);
+
 			WriteParameters();
+		}
+
+		/// <summary>
+		/// Plays the Animator state <paramref name="stateName"/> once over the active state's animation
+		/// (an air jump flip, a landing puff).
+		/// It ends with its clip or when a state with another animation becomes active;
+		/// after the clip the active state's animation starts again.
+		/// Can be called from a UnityEvent
+		/// </summary>
+		public void PlayOneShot(string stateName)
+		{
+			PlayOneShot(stateName, false);
+		}
+
+		/// <summary>
+		/// <paramref name="carryIntoNextState"/> is for states without their own animation (<see cref="JumpState"/>).
+		/// The animation of the state that follows then goes under the one-shot instead of cutting it
+		/// </summary>
+		internal void PlayOneShot(string stateName, bool carryIntoNextState)
+		{
+			if (string.IsNullOrEmpty(stateName) || !_animator || !_animator.isActiveAndEnabled || !_animator.runtimeAnimatorController)
+				return;
+
+			int hash = Animator.StringToHash(stateName);
+			if (!HasState(hash, stateName, "a one-shot"))
+				return;
+
+			_animator.Play(hash, 0, 0f);
+			_animator.Update(0f);
+			_oneShotHash = hash;
+			_oneShotCarries = carryIntoNextState;
 		}
 
 		/// <summary>
@@ -128,13 +173,19 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 			if (!_animator || !_animator.isActiveAndEnabled || !_animator.runtimeAnimatorController)
 			{
 				_playedHash = 0;
+				StopOneShot();
 				return;
 			}
 
-			if (!_animator.HasState(0, hash))
+			if (!HasState(hash, stateName, state.GetType().Name))
+				return;
+
+			// The one-shot stays over the same animation, and over the first one after a state without its own
+			// (air jump, then AirState). Any other animation cuts it
+			if (_oneShotHash != 0 && (_oneShotCarries || hash == _playedHash))
 			{
-				if (_warnedStates.Add(hash))
-					Debug.LogWarning($"Animator on '{_animator.name}' has no state '{stateName}' at the root of the Base Layer, needed by {state.GetType().Name}", _animator);
+				_oneShotCarries = false;
+				_playedHash = hash;
 				return;
 			}
 
@@ -150,6 +201,9 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 			// Never played (unknown name, Animator was inactive): nothing to wait for
 			if (hash != _playedHash)
 				return true;
+			// Its own animation starts again after the one-shot playing over it
+			if (_oneShotHash != 0)
+				return false;
 
 			AnimatorStateInfo info = _animator.GetCurrentAnimatorStateInfo(0);
 			return info.shortNameHash != hash || info.normalizedTime >= 1f;
@@ -212,6 +266,29 @@ namespace Yenotsoftware.KSE2DPlatformerFramework
 			// whatever its Update Mode or the caller's update phase
 			_animator.Update(0f);
 			_playedHash = hash;
+			StopOneShot();
+		}
+
+		private void StopOneShot()
+		{
+			_oneShotHash = 0;
+			_oneShotCarries = false;
+		}
+
+		private bool IsPlaying(int hash)
+		{
+			AnimatorStateInfo info = _animator.GetCurrentAnimatorStateInfo(0);
+			return info.shortNameHash == hash && info.normalizedTime < 1f;
+		}
+
+		private bool HasState(int hash, string stateName, string neededBy)
+		{
+			if (_animator.HasState(0, hash))
+				return true;
+
+			if (_warnedStates.Add(hash))
+				Debug.LogWarning($"Animator on '{_animator.name}' has no state '{stateName}' at the root of the Base Layer, needed by {neededBy}", _animator);
+			return false;
 		}
 
 		private void AddRelay()
